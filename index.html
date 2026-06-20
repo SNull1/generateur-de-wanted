@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Générateur d'Avis de Recherche - USMS</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            margin: 0;
+            background-color: #1e1e1e;
+            color: #fff;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 400px;
+            background-color: #2d2d2d;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+        }
+        .preview-area {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background-color: #121212;
+            overflow: auto;
+        }
+        canvas {
+            max-width: 100%;
+            max-height: 90vh;
+            border: 1px solid #444;
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
+        }
+        h2 { text-align: center; color: #4da6ff; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input[type="text"], input[type="file"], textarea {
+            width: 100%;
+            padding: 8px;
+            background-color: #404040;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea { resize: vertical; height: 60px; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #b31b1b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #8f1515; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>USMS - Base de données</h2>
+        
+        <div class="form-group">
+            <label>Photo du Suspect :</label>
+            <input type="file" id="photoUpload" accept="image/*">
+        </div>
+
+        <hr style="border-color: #555; margin: 20px 0;">
+
+        <div class="form-group">
+            <label>Recherché pour (Raison) :</label>
+            <input type="text" id="valRaison" value="MEURTRE AU PREMIER DEGRÉ" oninput="generer()">
+        </div>
+
+        <div class="form-group">
+            <label>Recherché depuis :</label>
+            <input type="text" id="valDepuis" value="20 Juin 2026" oninput="generer()">
+        </div>
+
+        <div class="form-group">
+            <label>Localisation :</label>
+            <input type="text" id="valLieu" value="Los Santos, San Andreas" oninput="generer()">
+        </div>
+
+        <div class="form-group">
+            <label>Chefs d'accusation :</label>
+            <textarea id="valAccusations" oninput="generer()">Trafic de stupéfiants, Homicide sur un agent fédéral, Fuite.</textarea>
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group"><label>DDN :</label><input type="text" id="valDDN" value="15/04/1990" oninput="generer()"></div>
+            <div class="form-group"><label>Race :</label><input type="text" id="valRace" value="Caucasien" oninput="generer()"></div>
+            <div class="form-group"><label>Sexe :</label><input type="text" id="valSexe" value="M" oninput="generer()"></div>
+            <div class="form-group"><label>Cheveux :</label><input type="text" id="valCheveux" value="Bruns" oninput="generer()"></div>
+            <div class="form-group"><label>Taille :</label><input type="text" id="valTaille" value="1m85" oninput="generer()"></div>
+            <div class="form-group"><label>Yeux :</label><input type="text" id="valYeux" value="Bleus" oninput="generer()"></div>
+        </div>
+        
+        <div class="form-group">
+            <label>Poids :</label>
+            <input type="text" id="valPoids" value="82 kg" oninput="generer()">
+        </div>
+
+        <div class="form-group">
+            <label>Tattoo/cicatrice :</label>
+            <input type="text" id="valSignes" value="Cicatrice joue gauche" oninput="generer()">
+        </div>
+
+        <div class="form-group">
+            <label>Alias :</label>
+            <input type="text" id="valAlias" value="'AUCUN'" oninput="generer()">
+        </div>
+
+        <div class="form-group">
+            <label>Détails :</label>
+            <textarea id="valDetails" oninput="generer()">Individu armé et extrêmement dangereux. Ne pas tenter de l'intercepter seul.</textarea>
+        </div>
+
+        <button onclick="telecharger()">Télécharger l'affiche</button>
+    </div>
+
+    <div class="preview-area">
+        <canvas id="canvasAffiche"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvasAffiche');
+        const ctx = canvas.getContext('2d');
+
+        let templateImg = new Image();
+        let photoImg = new Image();
+
+        // CHARGEMENT AUTOMATIQUE DU TEMPLATE PAR DÉFAUT
+        templateImg.src = 'template.png'; // Assure-toi que l'image s'appelle exactement comme ça et est dans le même dossier
+
+        templateImg.onload = function() {
+            canvas.width = templateImg.width;
+            canvas.height = templateImg.height;
+            generer();
+        };
+
+        // Gérer le cas où l'image n'est pas trouvée
+        templateImg.onerror = function() {
+            alert("Erreur: Le fichier 'template.png' est introuvable. Veuillez placer l'image de fond dans le même dossier que ce fichier HTML et la nommer 'template.png'.");
+        };
+
+        // Charger la photo du suspect
+        document.getElementById('photoUpload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                photoImg.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        photoImg.onload = function() {
+            generer();
+        };
+
+        // Fonction pour gérer les textes sur plusieurs lignes
+        function wrapText(context, text, x, y, maxWidth, lineHeight) {
+            var words = text.split(' ');
+            var line = '';
+            for(var n = 0; n < words.length; n++) {
+                var testLine = line + words[n] + ' ';
+                var metrics = context.measureText(testLine);
+                var testWidth = metrics.width;
+                if (testWidth > maxWidth && n > 0) {
+                    context.fillText(line, x, y);
+                    line = words[n] + ' ';
+                    y += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            context.fillText(line, x, y);
+        }
+
+        function generer() {
+            // S'assure que le template est bien chargé avant de dessiner
+            if (!templateImg.complete || templateImg.naturalWidth === 0) return;
+
+            // 1. Dessiner le template de fond
+            ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+
+            // Ratio pour adapter les coordonnées si l'image n'est pas exactement de cette taille
+            let scaleX = canvas.width / 1200;
+            let scaleY = canvas.height / 1550;
+
+            // 2. Cacher le texte "*RAISON ICI*"
+            ctx.fillStyle = "#0c1d3e"; 
+            ctx.fillRect(611 * scaleX, 300 * scaleY, -611 * scaleX, 100 * scaleY);
+
+            // 3. Dessiner la photo du suspect
+            if (photoImg.src) {
+                let photoX = 145 * scaleX;
+                let photoY = 460 * scaleY;
+                let photoW = 325 * scaleX;
+                let photoH = 350 * scaleY;
+                ctx.drawImage(photoImg, photoX, photoY, photoW, photoH);
+            }
+
+            // 4. Textes
+            ctx.textBaseline = "top";
+
+            // --- TEXTE EN BLANC (RAISON) ---
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold " + (30 * scaleX) + "px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(document.getElementById('valRaison').value.toUpperCase(), 300 * scaleX, 335 * scaleY);
+
+            // --- TEXTE EN NOIR (CHAMPS DROITE ET BAS) ---
+            ctx.fillStyle = "#000000";
+            ctx.textAlign = "left";
+            ctx.font = (25 * scaleX) + "px Arial";
+
+            ctx.fillText(document.getElementById('valDepuis').value, 690 * scaleX, 470 * scaleY);
+            ctx.fillText(document.getElementById('valLieu').value, 695 * scaleX, 580 * scaleY);
+            
+            wrapText(ctx, document.getElementById('valAccusations').value, 695 * scaleX, 665 * scaleY, 500 * scaleX, 35 * scaleY);
+
+            let gridY = 820 * scaleY;
+            let col1X = 660 * scaleX;
+            let col2X = 930 * scaleX;
+            let espaceY = 55 * scaleY;
+
+            ctx.fillText(document.getElementById('valDDN').value, 690 * scaleX, 805 * scaleY, 500 * scaleX, 35 * scaleY);
+            ctx.fillText(document.getElementById('valRace').value, 920 * scaleX, 800 * scaleY, 500 * scaleX, 35 * scaleY);
+            ctx.fillText(document.getElementById('valSexe').value, 695 * scaleX, 845 * scaleY, 500 * scaleX, 35 * scaleY);
+            ctx.fillText(document.getElementById('valCheveux').value, 920 * scaleX, 842 * scaleY, 500 * scaleX, 35 * scaleY);
+            ctx.fillText(document.getElementById('valTaille').value, 690 * scaleX, 885 * scaleY, 500 * scaleX, 35 * scaleY);
+            ctx.fillText(document.getElementById('valYeux').value, 920 * scaleX, 885 * scaleY, 500 * scaleX, 35 * scaleY);
+            ctx.fillText(document.getElementById('valPoids').value, 695 * scaleX, 925 * scaleY, 500 * scaleX, 35 * scaleY);
+            ctx.fillText(document.getElementById('valSignes').value, 693 * scaleX, 970 * scaleY, 500 * scaleX, 35 * scaleY);
+
+            ctx.font = "bold " + (25 * scaleX) + "px Arial";
+            ctx.fillText(document.getElementById('valAlias').value, 160 * scaleX, 1015 * scaleY);
+
+            ctx.font = (26 * scaleX) + "px Arial";
+            wrapText(ctx, document.getElementById('valDetails').value, 180 * scaleX, 1175 * scaleY, 900 * scaleX, 35 * scaleY);
+        }
+
+        function telecharger() {
+            const link = document.createElement('a');
+            link.download = 'USMS_WANTED_' + document.getElementById('valRaison').value.replace(/\s+/g, '_') + '.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
